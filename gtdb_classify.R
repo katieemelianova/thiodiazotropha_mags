@@ -2,24 +2,9 @@ library(ape)
 library(ggtree)
 library(tidytree)
 
-
-bac120 <- read_tsv("bac120_metadata.tsv")
-bac120$accession <- substring(bac120$accession, 4)
-
-gtdb_tree<-ape::read.tree("gtdbtk.bac120.classify.tree.1.tree")
-
-# genomes start with a random string so remove these so I can match up with genome accession names
-gtdb_tree$tip.label <- substring(gtdb_tree$tip.label, 4)
-
-# get the ancestor of a china and usa tip, then use this node number to tree_subset out a clade to work with a smaller tree
-getMRCA(gtdb_tree, c("GCA_050305635.1", "GCA_037384565.1"))
-gtdb_tree_subset <- tree_subset(gtdb_tree, 32064, 14)
-
-
-# use the total bac120 dataset to get the genus and if available species for each tip
-gtdb_tree_subset$genus <- left_join(data.frame(accession=gtdb_tree_subset$tip.label), bac120, by="accession") %>% dplyr::select(accession, ncbi_taxonomy) %>% mutate(ncbi_taxonomy=str_split_i(ncbi_taxonomy, ";", 6)) %>% pull(ncbi_taxonomy) %>% str_replace("g__", "")
-gtdb_tree_subset$species <- left_join(data.frame(accession=gtdb_tree_subset$tip.label), bac120, by="accession") %>% dplyr::select(accession, ncbi_taxonomy) %>% mutate(ncbi_taxonomy=str_split_i(ncbi_taxonomy, ";", 7)) %>% pull(ncbi_taxonomy) %>% str_replace("s__", "")
-
+#################################
+#     specify genome names      #
+#################################
 
 
 rolando_genomes <- c("GCA_037384565.1", "GCA_037384545.1", "GCA_037384465.1",
@@ -53,14 +38,47 @@ osvatic_genomes <- c("GCA_026042565.1", "GCA_026042595.1", "GCA_026042555.1", "G
                      "GCA_016842545.1",  "GCA_026041225.1", "GCA_026041245.1", "GCA_016842445.1",  "GCA_016842385.1", "GCA_016842365.1")
 
 
+#################################################
+#     read in tree and get smaller subtree      #
+#################################################
+
+bac120 <- read_tsv("bac120_metadata.tsv")
+bac120$accession <- substring(bac120$accession, 4)
+
+# read in tree from gtdbtk
+gtdb_tree<-ape::read.tree("gtdbtk.bac120.classify.tree.1.tree")
+
+# genomes start with a random string so remove these so I can match up with genome accession names
+gtdb_tree$tip.label <- substring(gtdb_tree$tip.label, 4)
+
+# get the ancestor of clam, china and usa tips, then use this node number to tree_subset out a clade to work with a smaller tree, taking a few nodes up for broader context
+getMRCA(gtdb_tree, c("GCA_050305635.1", "GCA_037384565.1"))
+genomes_in_tree <- c(rolando_genomes, huang_genomes, osvatic_genomes)[c(rolando_genomes, huang_genomes, osvatic_genomes) %in% gtdb_tree$tip.label]
+getMRCA(gtdb_tree, genomes_in_tree)
+
+gtdb_tree_subset <- tree_subset(gtdb_tree, 32030, 7)
+
+
+#################################################
+#         annotate taxonomy for tree            #
+#################################################
+
+# use the total bac120 dataset to get the genus and if available species for each tip
+gtdb_tree_subset$genus <- left_join(data.frame(accession=gtdb_tree_subset$tip.label), bac120, by="accession") %>% dplyr::select(accession, ncbi_taxonomy) %>% mutate(ncbi_taxonomy=str_split_i(ncbi_taxonomy, ";", 6)) %>% pull(ncbi_taxonomy) %>% str_replace("g__", "")
+gtdb_tree_subset$species <- left_join(data.frame(accession=gtdb_tree_subset$tip.label), bac120, by="accession") %>% dplyr::select(accession, ncbi_taxonomy) %>% mutate(ncbi_taxonomy=str_split_i(ncbi_taxonomy, ";", 7)) %>% pull(ncbi_taxonomy) %>% str_replace("s__", "")
+gtdb_tree_subset$species <- ifelse(gtdb_tree_subset$species == "", gtdb_tree_subset$genus, gtdb_tree_subset$species)
+
 # label genomes by which dataset they came from
-gtdb_tree_subset$genome <- case_when(gtdb_tree_subset$tip.label %in% rolando_genomes ~ "USA",
-                                     gtdb_tree_subset$tip.label %in% huang_genomes ~ "China",
-                                    !(gtdb_tree_subset$tip.label) %in% c(rolando_genomes, huang_genomes) ~ "GTDB")
+gtdb_tree_subset$genome <- case_when(gtdb_tree_subset$tip.label %in% rolando_genomes ~ "USA Spartina",
+                                     gtdb_tree_subset$tip.label %in% huang_genomes ~ "China Spartina",
+                                     gtdb_tree_subset$tip.label %in% osvatic_genomes ~ "Clam",
+                                    !(gtdb_tree_subset$tip.label) %in% c(rolando_genomes, huang_genomes, osvatic_genomes) ~ "GTDB")
 
 
 
-
+#################################
+#         build tree            #
+#################################
 
 dd <- data.frame(taxa=gtdb_tree_subset$tip.label,
                  genome=gtdb_tree_subset$genome,
@@ -68,14 +86,20 @@ dd <- data.frame(taxa=gtdb_tree_subset$tip.label,
                  species=gtdb_tree_subset$species)
 
 p<-ggtree(gtdb_tree_subset, size=0.3, colour="gray60")
+
+
+png("clam_spartina_tree.png", height=1600, width=1500)
 p %<+% dd + 
   geom_tippoint(aes(color=genome, size=genome)) + 
-  geom_tiplab(aes(label = genus)) +
-  theme(legend.title = element_text(size=25),
-        legend.text = element_text(size=20)) +
-  scale_colour_manual(values=c("deeppink2", "gray80", "green")) +
-  scale_size_manual(values=c(4, 2, 4)) +
-  guides(size = guide_legend(override.aes = list(size = 7)))
+  geom_tiplab(aes(label = species), size=7) +
+  theme(legend.text = element_text(size=20),
+        legend.title = element_blank(),
+        plot.margin = margin(1,5,1,5, "cm")) +
+  scale_colour_manual(values=c("deeppink2", "dodgerblue", "gray70", "green")) +
+  scale_size_manual(values=c(6, 6, 3, 6)) +
+  guides(size = guide_legend(override.aes = list(size = 7))) + 
+  xlim(NA, 0.15)
+dev.off()
 
 
 
@@ -84,36 +108,5 @@ p %<+% dd +
 
 
 
-
-
-
-
-
-
-# check how many of each genome got into the final tree
-table(gtdb_tree$genome)
-
-
-
-ggtree(gtdb_tree)  + geom_tiplab()
-
-
-
-
-tree_all_sedi <- ggtree::read.tree("sedimenticola_asv_seqs_all tree.newick")
-tree_all_sedi$range <- case_when(startsWith(tree_all_sedi$tip.label, "usa") ~ "USA",
-                                 startsWith(tree_all_sedi$tip.label, "france") ~ "France")
-
-ggtree(tree_all_sedi)  + geom_tiplab()
-
-dd <- data.frame(taxa=tree_all_sedi$tip.label,
-                 Sedimenticola=tree_all_sedi$range)
-p<-ggtree(tree_all_sedi, size=0.3, colour="gray60")
-p %<+% dd + geom_tippoint(aes(color=Sedimenticola, size=Sedimenticola)) + 
-  theme(legend.title = element_text(size=25),
-        legend.text = element_text(size=20)) +
-  scale_colour_manual(values=c("deeppink2", "darkolivegreen4")) +
-  scale_size_manual(values=c(4, 1.2)) +
-  guides(size = guide_legend(override.aes = list(size = 7)))
 
 
