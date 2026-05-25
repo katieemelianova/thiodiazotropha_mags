@@ -1,0 +1,17 @@
+# PRJNA715937 Assembly Details
+# Assembly	Level	WGS	BioSample	Isolate	Taxonomy
+GCA_019100325.1	Contig	JAHRHU000000000	SAMN19404760	LUC18004_Bgill_PigeonCreekCodakia	Candidatus Thiodiazotropha sp. (ex Codakia orbicularis)	
+GCA_019100285.1	Contig	JAHRHV000000000	SAMN19404761	LUC18004_Cgill_PigeonCreekCodakia	Candidatus Thiodiazotropha sp. (ex Codakia orbicularis)	
+GCA_019100355.1	Contig	JAHRHS000000000	SAMN19404756	LUC18002_Agill_PigeonCreekLuciina	Candidatus Thiodiazotropha sp. (ex Lucina aurantia)	
+GCA_019100345.1	Contig	JAHRHT000000000	SAMN19404758	LUC18002_Cgill_PigeonCreekLucina	Candidatus Thiodiazotropha sp. (ex Lucina aurantia)	
+GCA_019580635.1	Contig	JAICBT000000000	SAMN19677592	Cedar_Key_Lucina_3	Candidatus Thiodiazotropha sp. (ex. Lucinisca nassula)	
+GCA_019580595.1	Contig	JAICBR000000000	SAMN19677590	Cedar_Key_Lucina_1	Candidatus Thiodiazotropha sp. (ex. Lucinisca nassula)	
+GCA_019580605.1	Contig	JAICBS000000000	SAMN19677591	Cedar_Key_Lucina_2	Candidatus Thiodiazotropha sp. (ex. Lucinisca nassula)	
+GCA_019580565.1	Contig	JAICBV000000000	SAMN19677594	Cedar_Key_Lucina_5	Candidatus Thiodiazotropha sp. (ex. Lucinisca nassula)	
+GCA_019580555.1	Contig	JAICBU000000000	SAMN19677593	Cedar_Key_Lucina_4	Candidatus Thiodiazotropha sp. (ex. Lucinisca nassula)	
+GCA_019100305.1	Contig	JAHRHW000000000	SAMN19404774	LUC18009_Mgill_PainPondCtena	Candidatus Thiodiazotropha taylori	
+GCA_019100455.1	Contig	JAHRHO000000000	SAMN19404721	LUC17002_Bgill_CrescentPondCtena	Candidatus Thiodiazotropha taylori	
+GCA_019100445.1	Contig	JAHRHN000000000	SAMN19404720	LUC17002_Agill_CrescentPondCtena	Candidatus Thiodiazotropha taylori	
+GCA_019100425.1	Contig	JAHRHP000000000	SAMN19404724	LUC17002_Egill_CrescentPondCtena	Candidatus Thiodiazotropha taylori	
+GCA_019100405.1	Contig	JAHRHQ000000000	SAMN19404725	LUC17002_Fgill_CrescentPondCtena	Candidatus Thiodiazotropha taylori	
+GCA_019100385.1	Contig	JAHRHR000000000	SAMN19404733	LUC17004_Hgill_MoonRockPondCtena	Candidatus Thiodiazotropha taylori	
