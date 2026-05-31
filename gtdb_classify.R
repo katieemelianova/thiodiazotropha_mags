@@ -194,3 +194,19 @@ genome_all %>%
   filter(study %in% c("rolando", "huang")) %>%
   filter(Completeness > 85)
 
+
+
+
+
+genome_all %>% 
+  filter(Completeness > 85) %>%
+  pull(assembly) %>%
+  write.table("spartina_clam_mags_85completeness.txt", quote=FALSE, row.names = FALSE, col.names = FALSE)
+
+genome_all %>% 
+  filter(Completeness > 90) %>%
+  pull(assembly) %>%
+  write.table("spartina_clam_mags_90completeness.txt", quote=FALSE, row.names = FALSE, col.names = FALSE)
+
+
+
