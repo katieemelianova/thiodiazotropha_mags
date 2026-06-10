@@ -44,7 +44,7 @@ bac120$accession <- substring(bac120$accession, 4)
 gtdb_tree<-ape::read.tree("gtdbtk.bac120.user_msa.fasta.treefile")
 
 
-gtdb_tree$tip.label <- ifelse(startsWith(gtdb_tree_subset$tip.label, "GCA"), paste0("GCA_", str_split_i(gtdb_tree_subset$tip.label, "_", 2)), gtdb_tree$tip.label)
+gtdb_tree$tip.label <- ifelse(startsWith(gtdb_tree$tip.label, "GCA"), paste0("GCA_", str_split_i(gtdb_tree$tip.label, "_", 2)), gtdb_tree$tip.label)
 
 # genomes start with a random string so remove these so I can match up with genome accession names
 # gtdb_tree$tip.label <- substring(gtdb_tree$tip.label, 4)
@@ -103,6 +103,64 @@ dd <- data.frame(taxa=gtdb_tree$tip.label,
                  species=gtdb_tree$species)
 
 p<-ggtree(gtdb_tree, size=0.3, colour="gray60")
+
+
+copen <- cophenetic.phylo(gtdb_tree)
+hc <- hclust(as.dist(copen), method="complete")
+clusters <- cutree(hc, h=0.0005)
+
+keep <- sapply(split(names(clusters), clusters),
+               `[`, 1)
+
+gtdb_tree_reduced <- keep.tip(gtdb_tree, keep)
+
+
+gtdb_tree_reduced
+p<-ggtree(gtdb_tree_reduced, size=0.3, colour="gray60")
+
+
+
+png("clam_spartina_tree_iqtree_accession_reduced.png", height=2000, width=1000)
+p %<+% dd + 
+  geom_tippoint(aes(color=genome), size=4) + 
+  geom_tiplab(size=5.5) +
+  theme(legend.text = element_text(size=20),
+        legend.title = element_blank(),
+        plot.margin = margin(1,5,1,5, "cm")) +
+  scale_colour_manual(values=c("seagreen", "dodgerblue", "goldenrod1", "purple", "red", "blue", "gray70", "lightgreen")) +
+  #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
+  guides(size = guide_legend(override.aes = list(size = 7))) + 
+  xlim(NA, 0.15)
+dev.off()
+
+png("clam_spartina_tree_iqtree_species_reduced.png", height=2000, width=1000)
+p %<+% dd + 
+  geom_tippoint(aes(color=genome), size=4) + 
+  geom_tiplab(aes(label=species), size=5.5) +
+  theme(legend.text = element_text(size=20),
+        legend.title = element_blank(),
+        plot.margin = margin(1,5,1,5, "cm")) +
+  scale_colour_manual(values=c("seagreen", "dodgerblue", "goldenrod1", "purple", "red", "blue", "gray70", "lightgreen")) +
+  #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
+  guides(size = guide_legend(override.aes = list(size = 7))) + 
+  xlim(NA, 0.15)
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 png("clam_spartina_tree_iqtree_accession.png", height=4300, width=2500)
