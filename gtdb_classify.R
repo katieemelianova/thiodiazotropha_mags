@@ -100,61 +100,72 @@ gtdb_tree$host <- case_when(gtdb_tree$tip.label %in% rolando_genomes ~ "Plant",
 dd <- data.frame(taxa=gtdb_tree$tip.label,
                  genome=gtdb_tree$genome,
                  genus=gtdb_tree$genus,
-                 species=gtdb_tree$species)
+                 species=gtdb_tree$species) %>%
+  mutate(host=case_when(genome == "Clam Osvatic" ~"clam",
+                        genome == "USA Spartina" ~"plant",
+                        genome == "Clam Petersen" ~"clam",
+                        genome == "Clam Morel" ~ "clam",
+                        genome == "Clam Giani" ~"clam",
+                        genome == "China Spartina" ~"plant",
+                        genome == "Ficus Spartina" ~"plant",
+                        genome == "GTDB" ~ "GTDB"))
+
+
 
 p<-ggtree(gtdb_tree, size=0.3, colour="gray60")
 
 
-copen <- cophenetic.phylo(gtdb_tree)
-hc <- hclust(as.dist(copen), method="complete")
-clusters <- cutree(hc, h=0.0005)
-
-keep <- sapply(split(names(clusters), clusters),
-               `[`, 1)
-
-gtdb_tree_reduced <- keep.tip(gtdb_tree, keep)
-
-
-gtdb_tree_reduced
-p<-ggtree(gtdb_tree_reduced, size=0.3, colour="gray60")
 
 
 
-png("clam_spartina_tree_iqtree_accession_reduced.png", height=2000, width=1000)
-p %<+% dd + 
-  geom_tippoint(aes(color=genome), size=4) + 
-  geom_tiplab(size=5.5) +
-  theme(legend.text = element_text(size=20),
-        legend.title = element_blank(),
-        plot.margin = margin(1,5,1,5, "cm")) +
-  scale_colour_manual(values=c("seagreen", "dodgerblue", "goldenrod1", "purple", "red", "blue", "gray70", "lightgreen")) +
-  #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
-  guides(size = guide_legend(override.aes = list(size = 7))) + 
-  xlim(NA, 0.15)
+png("nodes_labelled_reduced_tree.png", height=1800, width=1300)
+p_collapsed <- p %<+% dd + 
+  geom_tippoint(aes(color=host), size=6) + 
+  scale_colour_manual(values=c("dodgerblue", "gray70", "chartreuse2")) + 
+  geom_text2(aes(subset=!isTip, label=node), hjust=-.3, size=6)
+p_collapsed
 dev.off()
 
-png("clam_spartina_tree_iqtree_species_reduced.png", height=2000, width=1000)
+png("species_reduced_tree_host2.png", height=1800, width=1300)
 p %<+% dd + 
-  geom_tippoint(aes(color=genome), size=4) + 
+  geom_tippoint(aes(color=host), size=5) + 
   geom_tiplab(aes(label=species), size=5.5) +
   theme(legend.text = element_text(size=20),
         legend.title = element_blank(),
         plot.margin = margin(1,5,1,5, "cm")) +
-  scale_colour_manual(values=c("seagreen", "dodgerblue", "goldenrod1", "purple", "red", "blue", "gray70", "lightgreen")) +
+  scale_colour_manual(values=c("dodgerblue", "gray70", "chartreuse3")) +
   #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
   guides(size = guide_legend(override.aes = list(size = 7))) + 
-  xlim(NA, 0.15)
+  xlim(NA, 0.15) + 
+  geom_cladelab(node=209, label="Clam", align=TRUE, 
+                                 geom='label', fill='dodgerblue', fontsize=10) +
+  geom_cladelab(node=154, label="Clam", align=TRUE, 
+                geom='label', fill='dodgerblue', fontsize=10) +
+  geom_cladelab(node=241, label="Plant", align=TRUE, 
+                geom='label', fill='chartreuse3', fontsize=10) +
+  geom_cladelab(node=260, label="Plant", align=TRUE, 
+                geom='label', fill='chartreuse3', fontsize=10)
 dev.off()
 
 
+p_collapsed <- p %<+% dd + 
+  geom_tippoint(aes(color=host), size=4) + 
+  geom_tiplab(aes(label=species), size=5.5) +
+  theme(legend.text = element_text(size=20),
+        legend.title = element_blank(),
+        plot.margin = margin(1,5,1,5, "cm")) +
+  scale_colour_manual(values=c("dodgerblue", "gray70", "chartreuse2")) +
+  #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
+  guides(size = guide_legend(override.aes = list(size = 7))) + 
+  xlim(NA, 0.15)
 
+p_collapsed <- collapse(p_collapsed, node = 169, mode = "max", fill="dodgerblue")
+p_collapsed <- collapse(p_collapsed, node = 157, mode = "max", fill="dodgerblue")
+p_collapsed <- collapse(p_collapsed, node = 211, mode = "max", fill="dodgerblue")
 
-
-
-
-
-
-
+png("nodes_labelled_reduced_tree_collapsed.png", height=1800, width=1300)
+p_collapsed
+dev.off()
 
 
 
