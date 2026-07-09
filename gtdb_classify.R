@@ -68,14 +68,13 @@ gtdb_tree$species <- ifelse(gtdb_tree$species == "", gtdb_tree$genus, gtdb_tree$
 
 
 # label genomes by which dataset and host they came from
-gtdb_tree$genome <- case_when(gtdb_tree$tip.label %in% rolando_genomes ~ "USA Spartina",
-                                     gtdb_tree$tip.label %in% huang_genomes ~ "China Spartina",
+gtdb_tree$genome <- case_when(gtdb_tree$tip.label %in% rolando_genomes ~ "Spartina Rolando",
+                                     gtdb_tree$tip.label %in% huang_genomes ~ "Spartina Huang",
                                      gtdb_tree$tip.label %in% osvatic_genomes ~ "Clam Osvatic",
                                      gtdb_tree$tip.label %in% giani_genomes ~ "Clam Giani",
                                      gtdb_tree$tip.label %in% morel_genomes ~ "Clam Morel",
                                      gtdb_tree$tip.label %in% petersen_clam ~ "Clam Petersen",
-                                     gtdb_tree$tip.label %in% ficus_genomes ~"Ficus Spartina",
-                                     #gtdb_tree$tip.label %in% gtdb_genomes ~ "gtdb input",
+                                     gtdb_tree$tip.label %in% ficus_genomes ~"Spartina Ficus",
                                     !(gtdb_tree$tip.label) %in% c(rolando_genomes, huang_genomes, osvatic_genomes) ~ "GTDB")
 
 
@@ -87,11 +86,12 @@ gtdb_tree$host <- case_when(gtdb_tree$tip.label %in% rolando_genomes ~ "Plant",
                               gtdb_tree$tip.label %in% petersen_clam ~ "Clam",
                               gtdb_tree$tip.label %in% ficus_genomes ~"Plant")
 
-##########################################################
-#       get DTDB genome names to download on lisc        #
-##########################################################
+####################################################
+#       root tree by most basal sedimenticola      #
+####################################################
 
-#gtdb_tree_subset$tip.label[gtdb_tree_subset$genome == "GTDB"] %>% write.table("GTDB_subtree_mag_acessions.txt", quote = FALSE, row.names = FALSE, col.names = FALSE)
+gtdb_tree <- root(gtdb_tree, "GCA_011051655.1")
+
 
 #################################
 #         build tree            #
@@ -101,13 +101,13 @@ dd <- data.frame(taxa=gtdb_tree$tip.label,
                  genome=gtdb_tree$genome,
                  genus=gtdb_tree$genus,
                  species=gtdb_tree$species) %>%
-  mutate(host=case_when(genome == "Clam Osvatic" ~"clam",
-                        genome == "USA Spartina" ~"plant",
-                        genome == "Clam Petersen" ~"clam",
-                        genome == "Clam Morel" ~ "clam",
-                        genome == "Clam Giani" ~"clam",
-                        genome == "China Spartina" ~"plant",
-                        genome == "Ficus Spartina" ~"plant",
+  mutate(host=case_when(genome == "Clam Osvatic" ~"Clam",
+                        genome == "Spartina Rolando" ~"Plant",
+                        genome == "Clam Petersen" ~"Clam",
+                        genome == "Clam Morel" ~ "Clam",
+                        genome == "Clam Giani" ~"Clam",
+                        genome == "Spartina Huang" ~"Plant",
+                        genome == "Spartina Ficus" ~"Plant",
                         genome == "GTDB" ~ "GTDB"))
 
 
@@ -118,83 +118,33 @@ p<-ggtree(gtdb_tree, size=0.3, colour="gray60")
 
 
 
-png("nodes_labelled_reduced_tree.png", height=1800, width=1300)
-p_collapsed <- p %<+% dd + 
-  geom_tippoint(aes(color=host), size=6) + 
-  scale_colour_manual(values=c("dodgerblue", "gray70", "chartreuse2")) + 
-  geom_text2(aes(subset=!isTip, label=node), hjust=-.3, size=6)
-p_collapsed
-dev.off()
-
-png("species_reduced_tree_host2.png", height=1800, width=1300)
 p %<+% dd + 
-  geom_tippoint(aes(color=host), size=5) + 
-  geom_tiplab(aes(label=species), size=5.5) +
-  theme(legend.text = element_text(size=20),
-        legend.title = element_blank(),
-        plot.margin = margin(1,5,1,5, "cm")) +
-  scale_colour_manual(values=c("dodgerblue", "gray70", "chartreuse3")) +
-  #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
-  guides(size = guide_legend(override.aes = list(size = 7))) + 
-  xlim(NA, 0.15) + 
-  geom_cladelab(node=209, label="Clam", align=TRUE, 
-                                 geom='label', fill='dodgerblue', fontsize=10) +
-  geom_cladelab(node=154, label="Clam", align=TRUE, 
-                geom='label', fill='dodgerblue', fontsize=10) +
-  geom_cladelab(node=241, label="Plant", align=TRUE, 
-                geom='label', fill='chartreuse3', fontsize=10) +
-  geom_cladelab(node=260, label="Plant", align=TRUE, 
-                geom='label', fill='chartreuse3', fontsize=10)
-dev.off()
-
-
-p_collapsed <- p %<+% dd + 
-  geom_tippoint(aes(color=host), size=4) + 
-  geom_tiplab(aes(label=species), size=5.5) +
-  theme(legend.text = element_text(size=20),
-        legend.title = element_blank(),
-        plot.margin = margin(1,5,1,5, "cm")) +
-  scale_colour_manual(values=c("dodgerblue", "gray70", "chartreuse2")) +
-  #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
-  guides(size = guide_legend(override.aes = list(size = 7))) + 
-  xlim(NA, 0.15)
-
-p_collapsed <- collapse(p_collapsed, node = 169, mode = "max", fill="dodgerblue")
-p_collapsed <- collapse(p_collapsed, node = 157, mode = "max", fill="dodgerblue")
-p_collapsed <- collapse(p_collapsed, node = 211, mode = "max", fill="dodgerblue")
-
-png("nodes_labelled_reduced_tree_collapsed.png", height=1800, width=1300)
-p_collapsed
-dev.off()
+  geom_tippoint(aes(color=genome), size=3) + 
+  geom_tiplab(aes(label=species), size=3) +
+  scale_colour_manual(values=c("#7ec5f4", "#0000C6", "#1D88AB", "#7F00FF", "gray79", "#28652C", "#849E00", "#5CE65C"))
 
 
 
-
-
-
-
-
-png("clam_spartina_tree_iqtree_accession.png", height=4300, width=2500)
+png("clam_spartina_tree_iqtree_accession.png", height=2000, width=2000)
 p %<+% dd + 
-  geom_tippoint(aes(color=genome), size=4) + 
-  geom_tiplab(size=5.5) +
-  theme(legend.text = element_text(size=20),
+  geom_tippoint(aes(color=genome), size=5.5) + 
+  geom_tiplab(size=7) +
+  theme(legend.text = element_text(size=30),
         legend.title = element_blank(),
         plot.margin = margin(1,5,1,5, "cm")) +
-  scale_colour_manual(values=c("seagreen", "dodgerblue", "goldenrod1", "purple", "red", "blue", "gray70", "lightgreen")) +
-  #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
+  scale_colour_manual(values=c("#7ec5f4", "#0000C6", "#1D88AB", "#7F00FF", "gray79", "#28652C", "#849E00", "#5CE65C")) +
   guides(size = guide_legend(override.aes = list(size = 7))) + 
   xlim(NA, 0.15)
 dev.off()
 
-png("clam_spartina_tree_iqtree_species.png", height=4300, width=2500)
+png("clam_spartina_tree_iqtree_species.png", height=2000, width=2000)
 p %<+% dd + 
-  geom_tippoint(aes(color=genome), size=4) + 
-  geom_tiplab(aes(label=species), size=5.5) +
-  theme(legend.text = element_text(size=20),
+  geom_tippoint(aes(color=host), size=5.5) + 
+  geom_tiplab(aes(label=species), size=7) +
+  theme(legend.text = element_text(size=30),
         legend.title = element_blank(),
         plot.margin = margin(1,5,1,5, "cm")) +
-  scale_colour_manual(values=c("seagreen", "dodgerblue", "goldenrod1", "purple", "red", "blue", "gray70", "lightgreen")) +
+  scale_colour_manual(values=c("#7ec5f4", "gray79", "#849E00", "#7F00FF", "gray79", "#28652C", "#849E00", "#5CE65C")) +
   #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
   guides(size = guide_legend(override.aes = list(size = 7))) + 
   xlim(NA, 0.15)
