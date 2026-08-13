@@ -9,104 +9,79 @@ library(vroom)
 
 
 
+rolando_genomes <- read.table("rolando_mag_accessions.txt") %>% pull(V1)
+huang_genomes <- read.table("huang_mag_accessions.txt") %>% pull(V1)
+osvatic_genomes <- read.table("osvatic_mag_accessions.txt") %>% pull(V1)
+giani_genomes <- read.table("giani_mag_accessions.txt") %>% pull(V1)
+morel_genomes <- read.table("morel_mag_accessions.txt") %>% pull(V1)
+petersen_clam <- c("luna_ont_bin1", "lotti_ont_bin1")
+#gtdb_genomes <- read.table("GTDB_subtree_mag_acessions.txt") %>% pull(V1)
+
+ficus_genomes <- c("PIE_T1P1_root_Marsh_MG__3300081559_11",
+                   "PIE_T1P1_root_Marsh_MG__3300081559_s3",
+                   "PIE_T2P3_root_Marsh_MG__3300077085_6",
+                   "PIE_T3P3_root_Marsh_MG__3300077490_s15")
+
+
 f = list.files(path = "/Users/katieemelianova/Desktop/Spartina/thiodiazotropha_mags/kofam", full.names = TRUE)
 
 kofam <- vroom(f, delim = "\t", id = "assembly") %>%
   set_colnames(c("assembly", "significant", "gene_name", "KO", "threshold", "score", "evalue", "KO_definition")) %>%
   mutate(assembly = str_split_i(assembly, "/", 8) %>% str_replace("_kofam", ""))
 
-kofam$assembly <- ifelse(startsWith(kofam$assembly, "GCA"), paste0("GCA_", str_split_i(kofam$assembly, "_", 2)) %>% paste0(".1"), kofam$assembly)
+kofam$assembly <- ifelse(startsWith(kofam$assembly, "GCA"), paste0("GCA_", str_split_i(kofam$assembly, "_", 2)), kofam$assembly)
 
+kofam$study <- case_when(kofam$assembly %in% rolando_genomes ~ "Spartina Rolando",
+                         kofam$assembly %in% huang_genomes ~ "Spartina Huang",
+                         kofam$assembly %in% osvatic_genomes ~ "Clam Osvatic",
+                         kofam$assembly %in% giani_genomes ~ "Clam Giani",
+                         kofam$assembly %in% morel_genomes ~ "Clam Morel",
+                         kofam$assembly %in% petersen_clam ~ "Clam Petersen",
+                         kofam$assembly %in% ficus_genomes ~"Spartina Ficus",
+                         !(kofam$assembly) %in% c(rolando_genomes, huang_genomes, osvatic_genomes) ~ "GTDB")
 
+kofam$host <- case_when(kofam$assembly %in% rolando_genomes ~ "Plant",
+                         kofam$assembly %in% huang_genomes ~ "Plant",
+                         kofam$assembly %in% osvatic_genomes ~ "Clam",
+                         kofam$assembly %in% giani_genomes ~ "Clam",
+                         kofam$assembly %in% morel_genomes ~ "Clam",
+                         kofam$assembly %in% petersen_clam ~ "Clam",
+                         kofam$assembly %in% ficus_genomes ~"Plant",
+                         !(kofam$assembly) %in% c(rolando_genomes, huang_genomes, osvatic_genomes) ~ "GTDB")
 
-
-kofam_genome <- left_join(kofam, genome_quality, by="assembly") %>% filter(significant == "*" & study != "GTDB" & Completeness > 85)
-kofam_genome <- kofam_genome %>% mutate(study = case_when(study == "China Spartina" ~ "huang",
-                                          study == "Clam Giani" ~ "giani",
-                                          study == "Clam Morel" ~ "morel",
-                                          study == "Clam Osvatic" ~ "osvatic",
-                                          study == "Ficus Spartina" ~ "ficus",
-                                          study == "USA Spartina" ~ "rolando"))
-
-kofam_genome %>% group_by(study) %>% summarise(length(unique(assembly)))
-
+kofam <- kofam %>% filter(significant == "*" & study != "GTDB")
+kofam %>% group_by(study) %>% summarise(length(unique(assembly)))
+kofam %>% group_by(host) %>% summarise(length(unique(assembly)))
 
 
 ########################################
 #       CLAM more than PLANT           #
 ########################################
 
-kofam_clam_mt_plant <- kofam_genome %>%
-  group_by(KO_definition, study) %>%
-  summarise(test=n()) %>%
-  pivot_wider(names_from = study, values_from = test, values_fill = 0) %>%
-  mutate(huang_percent = (huang/4) * 100,
-         rolando_percent = (rolando/7) * 100,
-         osvatic_percent = (osvatic/81) * 100,
-         morel_percent = (morel/156) * 100,
-         giani_percent = (giani/15) * 100) %>%
-  filter(huang_percent < 10 & rolando_percent < 10 & osvatic_percent > 80 & giani_percent > 80 & morel > 80)
 
-test <- kofam_clam_mt_plant %>% pull(KO_definition)
-clam_genes <- kofam_genome %>% filter(KO_definition %in% test) %>% pull(gene_name)
-
-kofam_genome %>%
-  group_by(KO_definition, study) %>%
+kofam_clam_mt_plant <- distinct_at(kofam, vars(assembly, KO_definition), .keep_all=TRUE) %>%
+  group_by(KO_definition, host) %>%
   summarise(test=n()) %>%
-  pivot_wider(names_from = study, values_from = test, values_fill = 0) %>%
-  mutate(huang_percent = (huang/4) * 100,
-         rolando_percent = (rolando/7) * 100,
-         osvatic_percent = (osvatic/81) * 100,
-         morel_percent = (morel/156) * 100,
-         giani_percent = (giani/15) * 100) %>%
-  filter(huang_percent < 10 & rolando_percent < 10 & osvatic_percent > 80 & giani_percent > 80 & morel > 80) %>%
-  data.frame() %>%
-  writexl::write_xlsx("clam_morethan_plant.xlsx")
+  pivot_wider(names_from = host, values_from = test, values_fill = 0) %>%
+  mutate(clam_percent = (Clam/11) * 100,
+         plant_percent = (Plant/9) * 100) %>%
+  filter(clam_percent > 80 & plant_percent < 20) 
+
+
 
 
 ########################################
 #       PLANT more than CLAM           #
 ########################################
 
-kofam_plant_mt_clam <- kofam_genome %>%
-  group_by(KO_definition, study) %>%
+kofam_plant_mt_clam <- distinct_at(kofam, vars(assembly, KO_definition), .keep_all=TRUE) %>%
+  group_by(KO_definition, host) %>%
   summarise(test=n()) %>%
-  pivot_wider(names_from = study, values_from = test, values_fill = 0) %>%
-  mutate(huang_percent = (huang/4) * 100,
-         rolando_percent = (rolando/7) * 100,
-         osvatic_percent = (osvatic/81) * 100,
-         morel_percent = (morel/156) * 100,
-         giani_percent = (giani/15) * 100) %>%
-  filter(huang_percent > 80 & rolando_percent > 80 & osvatic_percent < 5 & giani_percent < 5 & morel_percent < 5)
+  pivot_wider(names_from = host, values_from = test, values_fill = 0) %>%
+  mutate(clam_percent = (Clam/11) * 100,
+         plant_percent = (Plant/9) * 100) %>%
+  filter(clam_percent < 20 & plant_percent > 80)
 
-
-test <- kofam_plant_mt_clam %>% pull(KO_definition)
-plant_genes <- kofam_genome %>% filter(KO_definition %in% test) %>% pull(gene_name)
-
-kofam_genome %>%
-  group_by(KO_definition, study) %>%
-  summarise(test=n()) %>%
-  pivot_wider(names_from = study, values_from = test, values_fill = 0) %>%
-  mutate(huang_percent = (huang/4) * 100,
-         rolando_percent = (rolando/7) * 100,
-         osvatic_percent = (osvatic/81) * 100,
-         morel_percent = (morel/156) * 100,
-         giani_percent = (giani/15) * 100) %>%
-  filter(huang_percent > 80 & rolando_percent > 80 & osvatic_percent < 5 & giani_percent < 5 & morel_percent < 5) %>%
-  data.frame() %>%
-  writexl::write_xlsx("plant_morethan_clam.xlsx")
-
-
-
-
-
-kofam_genome %>%
-  group_by(KO_definition, study) %>%
-  summarise(test=n()) %>%
-  pivot_wider(names_from = study, values_from = test, values_fill = 0) %>%
-  filter(KO_definition == "MFS transporter, DHA2 family, tetracycline/oxytetracycline resistance protein")
-
-
-# KO definition most similar to Otr which was found to be 
-#"MFS transporter, DHA2 family, tetracycline/oxytetracycline resistance protein"
+kofam_clam_mt_plant %>% writexl::write_xlsx("clam_morethan_plant_kofam.xlsx")
+kofam_plant_mt_clam %>% writexl::write_xlsx("plant_morethan_clam_kofam.xlsx")
 

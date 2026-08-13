@@ -7,6 +7,7 @@ library(tidytree)
 library(tidyr)
 library(ggplot2)
 library(magrittr)
+library(ComplexHeatmap)
 
 
 #################################
@@ -27,6 +28,10 @@ ficus_genomes <- c("PIE_T1P1_root_Marsh_MG__3300081559_11",
                    "PIE_T2P3_root_Marsh_MG__3300077085_6",
                    "PIE_T3P3_root_Marsh_MG__3300077490_s15")
 
+plant_genomes <- c(rolando_genomes, huang_genomes, ficus_genomes)
+clam_genomes <- c(petersen_clam, morel_genomes, giani_genomes, osvatic_genomes)
+
+
 
 
 
@@ -40,8 +45,13 @@ ficus_genomes <- c("PIE_T1P1_root_Marsh_MG__3300081559_11",
 bac120 <- read_tsv("bac120_metadata.tsv")
 bac120$accession <- substring(bac120$accession, 4)
 
+
+bac120 %>% pull(ncbi_isolation_source)
+
 # read in tree from gtdbtk
 gtdb_tree<-ape::read.tree("gtdbtk.bac120.user_msa.fasta.treefile")
+
+gtdb_tree$genome_name <- gtdb_tree$tip.label
 
 
 gtdb_tree$tip.label <- ifelse(startsWith(gtdb_tree$tip.label, "GCA"), paste0("GCA_", str_split_i(gtdb_tree$tip.label, "_", 2)), gtdb_tree$tip.label)
@@ -86,11 +96,26 @@ gtdb_tree$host <- case_when(gtdb_tree$tip.label %in% rolando_genomes ~ "Plant",
                               gtdb_tree$tip.label %in% petersen_clam ~ "Clam",
                               gtdb_tree$tip.label %in% ficus_genomes ~"Plant")
 
+
+
+
+
+
+data.frame(genome_name=ifelse(startsWith(gtdb_tree$genome_name, "GCA"), gtdb_tree$genome_name %>% str_replace("\\.", "_"), gtdb_tree$genome_name),
+           host=gtdb_tree$host,
+           genome_source=gtdb_tree$genome) %>%
+  set_colnames(c("genome", "host", "genome_source")) %>%
+  mutate(host=ifelse(is.na(host), "Unknown", host),
+         genome=str_replace(genome, "__", "_")) %>%
+  write_tsv("anvio_metadata.tsv")
+
+
+
 ####################################################
 #       root tree by most basal sedimenticola      #
 ####################################################
 
-gtdb_tree <- root(gtdb_tree, "GCA_011051655.1")
+gtdb_tree <- root(gtdb_tree, "GCA_027068675.1")
 
 
 #################################
@@ -115,6 +140,10 @@ dd <- data.frame(taxa=gtdb_tree$tip.label,
 p<-ggtree(gtdb_tree, size=0.3, colour="gray60")
 
 
+p %<+% dd + 
+  geom_tippoint(aes(color=genome), size=3) + 
+  geom_tiplab(size=3) +
+  scale_colour_manual(values=c("#7ec5f4", "#0000C6", "#1D88AB", "#7F00FF", "gray79", "#28652C", "#849E00", "#5CE65C"))
 
 
 
@@ -125,11 +154,11 @@ p %<+% dd +
 
 
 
-png("clam_spartina_tree_iqtree_accession.png", height=2000, width=2000)
+png("clam_spartina_tree_iqtree_accession.png", height=2100, width=2500)
 p %<+% dd + 
-  geom_tippoint(aes(color=genome), size=5.5) + 
-  geom_tiplab(size=7) +
-  theme(legend.text = element_text(size=30),
+  geom_tippoint(aes(color=genome), size=12) + 
+  geom_tiplab(size=15, offset = 0.003) +
+  theme(legend.text = element_text(size=45),
         legend.title = element_blank(),
         plot.margin = margin(1,5,1,5, "cm")) +
   scale_colour_manual(values=c("#7ec5f4", "#0000C6", "#1D88AB", "#7F00FF", "gray79", "#28652C", "#849E00", "#5CE65C")) +
@@ -153,8 +182,67 @@ dev.off()
 
 
 
+# load in AAI values
+
+aai <- read_delim("all_aai.txt") %>% 
+  dplyr::select(query, target, AAI_estimate) %>%
+  set_colnames(c("genome1", "genome2", "AAI")) %>%
+  mutate(genome1 = ifelse(startsWith(genome1, "GCA"), paste0("GCA_", str_split_i(genome1, "_", 2)), genome1),
+         genome2 = ifelse(startsWith(genome2, "GCA"), paste0("GCA_", str_split_i(genome2, "_", 2)), genome2)) %>%
+  mutate(genome1 = str_replace(genome1, ".fna", ""),
+         genome2 = str_replace(genome2, ".fna", "")) %>%
+  #filter(genome1 %in% c(plant_genomes, clam_genomes) & genome2 %in% c(plant_genomes, clam_genomes)) %>%
+  filter(!(genome1 %in% c("query", "target"))) %>%
+  dplyr::select(genome1, genome2, AAI) %>%
+  pivot_wider(names_from = genome2,
+              values_from = AAI) %>%
+  column_to_rownames("genome1")
 
 
+
+aai[aai==">90%"]<-"90"
+aai <- mutate_all(aai, function(x) as.numeric(as.character(x)))
+
+
+
+
+ha_values <- data.frame(genome=colnames(aai)) %>%
+  mutate(Host=case_when(genome %in% clam_genomes ~"Clam",
+                        genome %in% plant_genomes ~"Plant",
+                        !(genome %in% c(clam_genomes, plant_genomes)) ~"GTDB")) %>%
+  pull(Host)
+
+rownames(aai) %<>% str_replace("GCF_963455295.1_xbCteDecu1.Thiodiazotropha_sp._1.1_genomic", "GCF_963455295.1")
+colnames(aai) %<>% str_replace("GCF_963455295.1_xbCteDecu1.Thiodiazotropha_sp._1.1_genomic", "GCF_963455295.1")
+
+
+ha <- HeatmapAnnotation(Host=ha_values, 
+                        col = list(Host = c("Clam" = "purple", "Plant" = "seagreen", "GTDB" = "gray78")),
+                        annotation_legend_param = list(Host = list(title = "Host"),
+                                                       title_gp = gpar(fontsize = 17, fontface = "bold"),
+                                                       labels_gp = gpar(fontsize = 23)),
+                        gp = gpar(col = "black"),
+                        show_annotation_name = FALSE)
+
+
+colnames(aai) %>% unique() %>% length()
+
+png("AAI_heatmap.png", height=1100, width=1100)
+ht <- Heatmap(as.matrix(aai),
+        show_column_dend = FALSE,
+        show_row_dend = FALSE,
+        top_annotation = ha,
+        show_row_names = FALSE,
+        column_names_gp = gpar(fontsize = 13.5),
+        heatmap_legend_param=list(title="AAI",
+                                  legend_height = unit(10, "cm"),
+                                  grid_height   = unit(1, "cm"),
+                                  grid_width    = unit(1, "cm"),
+                                  title_gp = gpar(fontsize = 17, fontface = "bold"),
+                                  labels_gp = gpar(fontsize = 17)))
+
+draw(ht, padding = unit(c(40, 25, 2, 25), "mm"))
+dev.off()
 
 
 
