@@ -257,6 +257,8 @@ genome_quality <- read_tsv("quality_report.tsv") %>%
 
 
 
+
+
 genome_quality %>%
   dplyr::select(study, host, Contamination, Completeness, Contig_N50, Genome_Size) %>%
   data.frame() %>% 
@@ -275,6 +277,11 @@ genome_all %>%
   
 
 
+genome_quality %>%
+  filter(Completeness > 85 & Contamination < 5 & host %in% c("Clam", "Plant")) %>%
+  dplyr::select(study, host, Contamination, Completeness, Contig_N50, Genome_Size) %>%
+  ggplot(aes(x = host, y = Genome_Size)) + 
+  geom_boxplot() 
 
 
 
