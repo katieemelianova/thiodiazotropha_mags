@@ -11,228 +11,166 @@ library(ComplexHeatmap)
 
 
 #################################
-#     specify genome names      #
+#       read in metadata        #
 #################################
 
-
-rolando_genomes <- read.table("rolando_mag_accessions.txt") %>% pull(V1)
-huang_genomes <- read.table("huang_mag_accessions.txt") %>% pull(V1)
-osvatic_genomes <- read.table("osvatic_mag_accessions.txt") %>% pull(V1)
-giani_genomes <- read.table("giani_mag_accessions.txt") %>% pull(V1)
-morel_genomes <- read.table("morel_mag_accessions.txt") %>% pull(V1)
-petersen_clam <- c("luna_ont_bin1", "lotti_ont_bin1")
-#gtdb_genomes <- read.table("GTDB_subtree_mag_acessions.txt") %>% pull(V1)
-
-ficus_genomes <- c("PIE_T1P1_root_Marsh_MG__3300081559_11",
-                   "PIE_T1P1_root_Marsh_MG__3300081559_s3",
-                   "PIE_T2P3_root_Marsh_MG__3300077085_6",
-                   "PIE_T3P3_root_Marsh_MG__3300077490_s15")
-
-plant_genomes <- c(rolando_genomes, huang_genomes, ficus_genomes)
-clam_genomes <- c(petersen_clam, morel_genomes, giani_genomes, osvatic_genomes)
-
-
-
-
-
-
-
+anvio_metadata <- read_tsv("anvio_metadata.txt")
 
 #################################################
 #     read in tree and get smaller subtree      #
 #################################################
 
-bac120 <- read_tsv("bac120_metadata.tsv")
-bac120$accession <- substring(bac120$accession, 4)
-
-
-bac120 %>% pull(ncbi_isolation_source)
-
-# read in tree from gtdbtk
-gtdb_tree<-ape::read.tree("gtdbtk.bac120.user_msa.fasta.treefile")
-
-gtdb_tree$genome_name <- gtdb_tree$tip.label
-
-
-gtdb_tree$tip.label <- ifelse(startsWith(gtdb_tree$tip.label, "GCA"), paste0("GCA_", str_split_i(gtdb_tree$tip.label, "_", 2)), gtdb_tree$tip.label)
-
-# genomes start with a random string so remove these so I can match up with genome accession names
-# gtdb_tree$tip.label <- substring(gtdb_tree$tip.label, 4)
-
-# get the ancestor of clam, china and usa tips, then use this node number to tree_subset out a clade to work with a smaller tree, taking a few nodes up for broader context
-#getMRCA(gtdb_tree, c("GCA_050305635.1", "GCA_037384565.1"))
-#genomes_in_tree <- c(rolando_genomes, huang_genomes, osvatic_genomes, morel_genomes, giani_genomes)[c(rolando_genomes, huang_genomes, osvatic_genomes, morel_genomes, giani_genomes) %in% gtdb_tree$tip.label]
-#gtdb_tree_subset <- tree_subset(gtdb_tree, getMRCA(gtdb_tree, genomes_in_tree), 7)
-
+gtdb_tree<-ape::read.tree("core-sequences.aln.fasta.treefile")
 
 #################################################
 #         annotate taxonomy for tree            #
 #################################################
 
-# use the total bac120 dataset to get the genus and if available species for each tip
-gtdb_tree$genus <- left_join(data.frame(accession=gtdb_tree$tip.label), bac120, by="accession") %>% dplyr::select(accession, ncbi_taxonomy) %>% mutate(ncbi_taxonomy=str_split_i(ncbi_taxonomy, ";", 6)) %>% pull(ncbi_taxonomy) %>% str_replace("g__", "")
-gtdb_tree$species <- left_join(data.frame(accession=gtdb_tree$tip.label), bac120, by="accession") %>% dplyr::select(accession, ncbi_taxonomy) %>% mutate(ncbi_taxonomy=str_split_i(ncbi_taxonomy, ";", 7)) %>% pull(ncbi_taxonomy) %>% str_replace("s__", "")
-gtdb_tree$species <- ifelse(gtdb_tree$species == "", gtdb_tree$genus, gtdb_tree$species)
-
-
-
-
 # label genomes by which dataset and host they came from
-gtdb_tree$genome <- case_when(gtdb_tree$tip.label %in% rolando_genomes ~ "Spartina Rolando",
-                                     gtdb_tree$tip.label %in% huang_genomes ~ "Spartina Huang",
-                                     gtdb_tree$tip.label %in% osvatic_genomes ~ "Clam Osvatic",
-                                     gtdb_tree$tip.label %in% giani_genomes ~ "Clam Giani",
-                                     gtdb_tree$tip.label %in% morel_genomes ~ "Clam Morel",
-                                     gtdb_tree$tip.label %in% petersen_clam ~ "Clam Petersen",
-                                     gtdb_tree$tip.label %in% ficus_genomes ~"Spartina Ficus",
-                                    !(gtdb_tree$tip.label) %in% c(rolando_genomes, huang_genomes, osvatic_genomes) ~ "GTDB")
 
+gtdb_tree$host <- left_join(data.frame(genome=gtdb_tree$tip.label), anvio_metadata) %>% pull(host)
+gtdb_tree$host_species <- left_join(data.frame(genome=gtdb_tree$tip.label), anvio_metadata) %>% pull(host_species)
+gtdb_tree$genome_name <- left_join(data.frame(genome=gtdb_tree$tip.label), anvio_metadata) %>% pull(genome_name) 
 
-gtdb_tree$host <- case_when(gtdb_tree$tip.label %in% rolando_genomes ~ "Plant",
-                              gtdb_tree$tip.label %in% huang_genomes ~ "Plant",
-                              gtdb_tree$tip.label %in% osvatic_genomes ~ "Clam",
-                              gtdb_tree$tip.label %in% giani_genomes ~ "Clam",
-                              gtdb_tree$tip.label %in% morel_genomes ~ "Clam",
-                              gtdb_tree$tip.label %in% petersen_clam ~ "Clam",
-                              gtdb_tree$tip.label %in% ficus_genomes ~"Plant")
-
-
-
-
-
-
-data.frame(genome_name=ifelse(startsWith(gtdb_tree$genome_name, "GCA"), gtdb_tree$genome_name %>% str_replace("\\.", "_"), gtdb_tree$genome_name),
-           host=gtdb_tree$host,
-           genome_source=gtdb_tree$genome) %>%
-  set_colnames(c("genome", "host", "genome_source")) %>%
-  mutate(host=ifelse(is.na(host), "Unknown", host),
-         genome=str_replace(genome, "__", "_")) %>%
-  write_tsv("anvio_metadata.tsv")
-
-
+anvio_metadata %>% filter(genome == "GCA_027068675_1_ASM2706867v1_genomic")
 
 ####################################################
 #       root tree by most basal sedimenticola      #
 ####################################################
 
-gtdb_tree <- root(gtdb_tree, "GCA_027068675.1")
-
+gtdb_tree <- root(gtdb_tree, "GCA_027068675_1_ASM2706867v1_genomic")
 
 #################################
 #         build tree            #
 #################################
 
 dd <- data.frame(taxa=gtdb_tree$tip.label,
-                 genome=gtdb_tree$genome,
-                 genus=gtdb_tree$genus,
-                 species=gtdb_tree$species) %>%
-  mutate(host=case_when(genome == "Clam Osvatic" ~"Clam",
-                        genome == "Spartina Rolando" ~"Plant",
-                        genome == "Clam Petersen" ~"Clam",
-                        genome == "Clam Morel" ~ "Clam",
-                        genome == "Clam Giani" ~"Clam",
-                        genome == "Spartina Huang" ~"Plant",
-                        genome == "Spartina Ficus" ~"Plant",
-                        genome == "GTDB" ~ "GTDB"))
+                 genome=gtdb_tree$genome_name,
+                 host=gtdb_tree$host,
+                 host_species=gtdb_tree$host_species)
 
 
-
-p<-ggtree(gtdb_tree, size=0.3, colour="gray60")
+p<-ggtree(gtdb_tree, size=1, colour="gray60")
 
 
 p %<+% dd + 
-  geom_tippoint(aes(color=genome), size=3) + 
-  geom_tiplab(size=3) +
-  scale_colour_manual(values=c("#7ec5f4", "#0000C6", "#1D88AB", "#7F00FF", "gray79", "#28652C", "#849E00", "#5CE65C"))
+  geom_tippoint(aes(color=genome), size=2, stroke=2) + 
+  geom_tiplab(size=5, offset = 0.003) +
+  scale_colour_manual(values=c("deepskyblue1", "steelblue4", "blue2", "cornflowerblue", "purple", "slateblue4", "grey80", "pink",  "chartreuse1", "darkgreen", "olivedrab3", "red", "brown"))+
+  xlim(0, max(p$data$x) * 1.5) +
+  geom_nodelab(size = 3, hjust = 1.2, vjust = -0.5)
+
+  
 
 
 
+colours_plot_accession <- c("darkblue", "#4B3FD1", "#1F4FD8", "#4682B4", "#0091FF", "deepskyblue1", "lightblue2", "grey75",  "palegreen", "#00C853", "#6B8E23", "forestgreen")
+colours_plot_host<- c("cornflowerblue", "grey", "palegreen", "olivedrab")
+
+
+png("clam_spartina_tree_iqtree_accession.png", height=3000, width=2800)
 p %<+% dd + 
-  geom_tippoint(aes(color=genome), size=3) + 
-  geom_tiplab(aes(label=species), size=3) +
-  scale_colour_manual(values=c("#7ec5f4", "#0000C6", "#1D88AB", "#7F00FF", "gray79", "#28652C", "#849E00", "#5CE65C"))
+  geom_tippoint(aes(color=genome), size=10, stroke=4) + 
+  geom_tiplab(size=15, offset = 0.003) +
+  geom_nodelab(size = 8, hjust = 1.2, vjust = -0.5) +
+  theme(legend.text = element_text(size=45),
+        legend.title = element_blank(),
+        plot.margin = margin(1,5,1,5, "cm")) +
+  scale_colour_manual(values=colours_plot_accession) + 
+  guides(size = guide_legend(override.aes = list(size = 7))) + 
+  xlim(NA, 1.1)
+dev.off()
 
 
-
-png("clam_spartina_tree_iqtree_accession.png", height=2100, width=2500)
+png("clam_spartina_tree_iqtree_host.png", height=2200, width=3000)
 p %<+% dd + 
-  geom_tippoint(aes(color=genome), size=12) + 
+  geom_tippoint(aes(color=host_species), size=10, stroke=4) + 
   geom_tiplab(size=15, offset = 0.003) +
   theme(legend.text = element_text(size=45),
         legend.title = element_blank(),
         plot.margin = margin(1,5,1,5, "cm")) +
-  scale_colour_manual(values=c("#7ec5f4", "#0000C6", "#1D88AB", "#7F00FF", "gray79", "#28652C", "#849E00", "#5CE65C")) +
+  scale_colour_manual(values=colours_plot_host) + 
   guides(size = guide_legend(override.aes = list(size = 7))) + 
-  xlim(NA, 0.15)
+  xlim(NA, 0.16)
 dev.off()
 
-png("clam_spartina_tree_iqtree_species.png", height=2000, width=2000)
+
+
+
+png("clam_spartina_tree_iqtree_host.png", height=1300, width=1000)
 p %<+% dd + 
-  geom_tippoint(aes(color=host), size=5.5) + 
-  geom_tiplab(aes(label=species), size=7) +
-  theme(legend.text = element_text(size=30),
+  geom_tippoint(aes(color=host), size=9, stroke=0.5) + 
+  theme(legend.text = element_text(size=55),
         legend.title = element_blank(),
         plot.margin = margin(1,5,1,5, "cm")) +
-  scale_colour_manual(values=c("#7ec5f4", "gray79", "#849E00", "#7F00FF", "gray79", "#28652C", "#849E00", "#5CE65C")) +
-  #scale_size_manual(values=c(6, 6, 6, 6, 6, 6, 6)) +
-  guides(size = guide_legend(override.aes = list(size = 7))) + 
-  xlim(NA, 0.15)
+  scale_colour_manual(
+    values = c("Clam" = "blue2", "Outgroup" = "gray79", "Plant" = "olivedrab3"),
+    breaks = c("Clam", "Plant", "Outgroup")   # legend order
+  )
+
+
+  #scale_shape_manual(values=c(15, 16, 17, 18, 24, 9)) +
+  #guides(size = guide_legend(override.aes = list(size = 7))) + 
+  #xlim(NA, 0.15)
 dev.off()
 
 
+
+#################################
+#         draw AAI heatmap      #
+#################################
 
 
 # load in AAI values
 
-aai <- read_delim("all_aai.txt") %>% 
+aai <- read_delim("all_aai.txt", col_names = FALSE) %>% 
+  set_colnames(c("query", "target", "avg_jacc_sim", "jacc_SD", "num_shared_SCPs", "poss_shared_SCPs", "AAI_estimate")) %>%
   dplyr::select(query, target, AAI_estimate) %>%
   set_colnames(c("genome1", "genome2", "AAI")) %>%
   mutate(genome1 = ifelse(startsWith(genome1, "GCA"), paste0("GCA_", str_split_i(genome1, "_", 2)), genome1),
          genome2 = ifelse(startsWith(genome2, "GCA"), paste0("GCA_", str_split_i(genome2, "_", 2)), genome2)) %>%
   mutate(genome1 = str_replace(genome1, ".fna", ""),
          genome2 = str_replace(genome2, ".fna", "")) %>%
+  mutate(genome1 = str_replace(genome1, ".fa", ""),
+         genome2 = str_replace(genome2, ".fa", "")) %>%
   #filter(genome1 %in% c(plant_genomes, clam_genomes) & genome2 %in% c(plant_genomes, clam_genomes)) %>%
   filter(!(genome1 %in% c("query", "target"))) %>%
   dplyr::select(genome1, genome2, AAI) %>%
   pivot_wider(names_from = genome2,
               values_from = AAI) %>%
-  column_to_rownames("genome1")
-
-
+  tibble::column_to_rownames("genome1")
 
 aai[aai==">90%"]<-"90"
 aai <- mutate_all(aai, function(x) as.numeric(as.character(x)))
 
-
-
-
 ha_values <- data.frame(genome=colnames(aai)) %>%
   mutate(Host=case_when(genome %in% clam_genomes ~"Clam",
                         genome %in% plant_genomes ~"Plant",
-                        !(genome %in% c(clam_genomes, plant_genomes)) ~"GTDB")) %>%
+                        genome %in% c("GCA_027068675.1") ~"Outgroup")) %>%
   pull(Host)
 
 rownames(aai) %<>% str_replace("GCF_963455295.1_xbCteDecu1.Thiodiazotropha_sp._1.1_genomic", "GCF_963455295.1")
 colnames(aai) %<>% str_replace("GCF_963455295.1_xbCteDecu1.Thiodiazotropha_sp._1.1_genomic", "GCF_963455295.1")
 
-
 ha <- HeatmapAnnotation(Host=ha_values, 
-                        col = list(Host = c("Clam" = "purple", "Plant" = "seagreen", "GTDB" = "gray78")),
+                        col = list(Host = c("Clam" = "purple", "Plant" = "seagreen", "Outgroup" = "gray78")),
+                        simple_anno_size = unit(1.5, "cm"),
                         annotation_legend_param = list(Host = list(title = "Host"),
-                                                       title_gp = gpar(fontsize = 17, fontface = "bold"),
-                                                       labels_gp = gpar(fontsize = 23)),
+                                                       title_gp = gpar(fontsize = 30, fontface = "bold"),
+                                                       labels_gp = gpar(fontsize = 30)),
                         gp = gpar(col = "black"),
                         show_annotation_name = FALSE)
 
 
 colnames(aai) %>% unique() %>% length()
 
-png("AAI_heatmap.png", height=1100, width=1100)
+png("AAI_heatmap.png", height=900, width=1100)
 ht <- Heatmap(as.matrix(aai),
         show_column_dend = FALSE,
         show_row_dend = FALSE,
         top_annotation = ha,
         show_row_names = FALSE,
+        show_column_names = FALSE,
         column_names_gp = gpar(fontsize = 13.5),
         heatmap_legend_param=list(title="AAI",
                                   legend_height = unit(10, "cm"),
@@ -245,8 +183,9 @@ draw(ht, padding = unit(c(40, 25, 2, 25), "mm"))
 dev.off()
 
 
-
-
+############################################
+#         draw genome length boxplots      #
+############################################
 
 genome_quality <- read_tsv("quality_report.tsv") %>% 
   dplyr::rename("assembly"="Name") %>%
@@ -254,35 +193,29 @@ genome_quality <- read_tsv("quality_report.tsv") %>%
   mutate(assembly = ifelse(startsWith(assembly, "GCA"), paste0("GCA_", str_split_i(assembly, "_", 2)), assembly)) %>%
   left_join(data.frame(assembly=gtdb_tree$tip.label, host=gtdb_tree$host, study=gtdb_tree$genome), by="assembly")
 
-
-
-
-
-
-genome_quality %>%
-  dplyr::select(study, host, Contamination, Completeness, Contig_N50, Genome_Size) %>%
-  data.frame() %>% 
-  filter(study %in% c("USA Spartina", "China Spartina", "Ficus Spartina")) %>%
-  ggplot(aes(x = Completeness, y = Genome_Size)) + 
-  geom_point(size=5) +
-  ylab("Plant associated Ca. Thio Genome Length (Mb") +
-  theme(axis.text=element_text(size=20),
-        axis.title=element_text(size=25))
-
-genome_all %>%
-  dplyr::select(study, host, Contamination, Completeness, n50, length) %>%
-  data.frame() %>% 
-  filter(study %in% c("rolando", "huang")) %>%
-  write_xlsx("thio_genomesize_completeness.xlsx")
-  
-
-
+png("genome_size.png", height = 500, width=500)
 genome_quality %>%
   filter(Completeness > 85 & Contamination < 5 & host %in% c("Clam", "Plant")) %>%
   dplyr::select(study, host, Contamination, Completeness, Contig_N50, Genome_Size) %>%
-  ggplot(aes(x = host, y = Genome_Size)) + 
-  geom_boxplot() 
+  ggplot(aes(x = host, y = Genome_Size/1000000, fill=host)) + 
+  geom_boxplot() +
+  theme(axis.text = element_text(size=30),
+        axis.title=element_text(size=30),
+        legend.position="none") +
+  scale_fill_manual(values=c("dodgerblue", "seagreen")) +
+  ylab("Genome Size (Mb)") + 
+  xlab("Host")
+dev.off()
 
+
+
+
+
+####################################
+####################################
+#       END OF FORMAL PLOTS        #
+####################################
+####################################
 
 
 
@@ -309,4 +242,18 @@ p_collapsed <- collapse(p_collapsed, node = 583, mode = "max", fill="goldenrod1"
 png("test.png", height=1000, width=1000)
 p_collapsed
 dev.off()
+
+######################################################################################################
+#          alternative to anvio metadata whihc incudes the clade info, not sure if willl use         #
+######################################################################################################
+
+data.frame(genome=gtdb_tree$genome_name) %>%
+  mutate(genome_join = ifelse(startsWith(genome, "GCA"), paste0(str_split_i(genome, ".1_", 1), ".1"), gtdb_tree$genome_name)) %>%
+  dplyr::select(-genome_join) %>%
+  mutate(genome=ifelse(startsWith(genome, "GCA"), genome %>% str_replace("\\.", "_"), genome),
+         host=gtdb_tree$host,
+         genome_source=gtdb_tree$genome) %>%
+  mutate(host=ifelse(is.na(host), "Unknown", host),
+         genome=str_replace(genome, "__", "_")) %>%
+  write_tsv("anvio_metadata.tsv")
 
