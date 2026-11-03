@@ -31,8 +31,8 @@ gtdb_tree<-ape::read.tree("core-sequences.aln.fasta.treefile")
 gtdb_tree$host <- left_join(data.frame(genome=gtdb_tree$tip.label), anvio_metadata) %>% pull(host)
 gtdb_tree$host_species <- left_join(data.frame(genome=gtdb_tree$tip.label), anvio_metadata) %>% pull(host_species)
 gtdb_tree$genome_name <- left_join(data.frame(genome=gtdb_tree$tip.label), anvio_metadata) %>% pull(genome_name) 
+gtdb_tree$tip.label.view <- ifelse(startsWith(gtdb_tree$tip.label, "GCA"), paste0("GCA_", str_split_i(gtdb_tree$tip.label, "_", 2)), gtdb_tree$tip.label)
 
-anvio_metadata %>% filter(genome == "GCA_027068675_1_ASM2706867v1_genomic")
 
 ####################################################
 #       root tree by most basal sedimenticola      #
@@ -47,7 +47,8 @@ gtdb_tree <- root(gtdb_tree, "GCA_027068675_1_ASM2706867v1_genomic")
 dd <- data.frame(taxa=gtdb_tree$tip.label,
                  genome=gtdb_tree$genome_name,
                  host=gtdb_tree$host,
-                 host_species=gtdb_tree$host_species)
+                 host_species=gtdb_tree$host_species,
+                 tip.view = gtdb_tree$tip.label.view)
 
 
 p<-ggtree(gtdb_tree, size=1, colour="gray60")
@@ -71,7 +72,7 @@ colours_plot_host<- c("cornflowerblue", "grey", "palegreen", "olivedrab")
 png("clam_spartina_tree_iqtree_accession.png", height=3000, width=2800)
 p %<+% dd + 
   geom_tippoint(aes(color=genome), size=10, stroke=4) + 
-  geom_tiplab(size=15, offset = 0.003) +
+  geom_tiplab(size=15, offset = 0.003, aes(label = tip.view)) +
   geom_nodelab(size = 8, hjust = 1.2, vjust = -0.5) +
   theme(legend.text = element_text(size=45),
         legend.title = element_blank(),
@@ -85,13 +86,13 @@ dev.off()
 png("clam_spartina_tree_iqtree_host.png", height=2200, width=3000)
 p %<+% dd + 
   geom_tippoint(aes(color=host_species), size=10, stroke=4) + 
-  geom_tiplab(size=15, offset = 0.003) +
+  geom_tiplab(size=15, offset = 0.003, aes(label = tip.view)) +
   theme(legend.text = element_text(size=45),
         legend.title = element_blank(),
         plot.margin = margin(1,5,1,5, "cm")) +
   scale_colour_manual(values=colours_plot_host) + 
   guides(size = guide_legend(override.aes = list(size = 7))) + 
-  xlim(NA, 0.16)
+  xlim(NA, 1.5)
 dev.off()
 
 
@@ -107,11 +108,6 @@ p %<+% dd +
     values = c("Clam" = "blue2", "Outgroup" = "gray79", "Plant" = "olivedrab3"),
     breaks = c("Clam", "Plant", "Outgroup")   # legend order
   )
-
-
-  #scale_shape_manual(values=c(15, 16, 17, 18, 24, 9)) +
-  #guides(size = guide_legend(override.aes = list(size = 7))) + 
-  #xlim(NA, 0.15)
 dev.off()
 
 
@@ -243,17 +239,14 @@ png("test.png", height=1000, width=1000)
 p_collapsed
 dev.off()
 
-######################################################################################################
-#          alternative to anvio metadata whihc incudes the clade info, not sure if willl use         #
-######################################################################################################
 
-data.frame(genome=gtdb_tree$genome_name) %>%
-  mutate(genome_join = ifelse(startsWith(genome, "GCA"), paste0(str_split_i(genome, ".1_", 1), ".1"), gtdb_tree$genome_name)) %>%
-  dplyr::select(-genome_join) %>%
-  mutate(genome=ifelse(startsWith(genome, "GCA"), genome %>% str_replace("\\.", "_"), genome),
-         host=gtdb_tree$host,
-         genome_source=gtdb_tree$genome) %>%
-  mutate(host=ifelse(is.na(host), "Unknown", host),
-         genome=str_replace(genome, "__", "_")) %>%
-  write_tsv("anvio_metadata.tsv")
+
+
+
+
+
+
+
+
+
 
